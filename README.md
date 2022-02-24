@@ -38,3 +38,9 @@ Here is what you need to do for networking infrastructure setup:
     ```
    aws cloudformation create-stack --stack-name stack-name --template-body file://csye6225-infra.yml
    ```
+
+4. Run this command to delete the stack
+    
+    ```    
+    aws cloudformation delete-stack --stack-name <stack-name>
+    ```
