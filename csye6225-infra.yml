@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CSYE 6225 IaC Demo
+Description: CSYE 6225 Cloud Formation
 Parameters:
   VpcCidrBlock:
     Description: "CIDR block for VPC"
@@ -20,6 +20,10 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
     Type: String
     Default: 10.0.2.0/24
+
+  ImageId:
+    Description: ImageID
+    Type: String
 
 Resources:
   VPC:
@@ -112,3 +116,71 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet3
+
+  #Create Security Group
+  SSHSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: SSH Security Group
+      SecurityGroupIngress:
+        # SSH access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIpv6: ::/0    
+        # HTTPS access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIpv6: ::/0  
+        # HTTP access
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIpv6: ::/0
+        # Web Server
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIpv6: ::/0                   
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-SSH Security Group
+      VpcId: !Ref VPC      
+# Create EC2 Instance
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      KeyName: csye_6225
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: "gp2"
+            DeleteOnTermination: "true"
+            VolumeSize: "20"  
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          SubnetId: !Ref PublicSubnet2
+          GroupSet: [!Ref SSHSecurityGroup]
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-EC2"
