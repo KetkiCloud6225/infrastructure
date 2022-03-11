@@ -9,21 +9,130 @@ Parameters:
   PublicSubnet1CIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
-    Default: 10.0.0.0/24  
+    Default: 10.0.10.0/24  
 
   PublicSubnet2CIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
     Type: String
-    Default: 10.0.1.0/24
+    Default: 10.0.20.0/24
 
   PublicSubnet3CIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
     Type: String
-    Default: 10.0.2.0/24
+    Default: 10.0.30.0/24
+
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.0.40.0/24
+
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+    Type: String
+    Default: 10.0.50.0/24
+    
+  PrivateSubnet3CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+    Type: String
+    Default: 10.0.60.0/24    
+
+  TcpPort:
+    Description: Enter RDS Listening TCP Port number.
+    Type: Number
+    Default: '3306'    
+
+  DatabaseInstanceIdentifier:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters
+    Default: csye6225
+    Description: Instance identifier name
+    MaxLength: 60
+    MinLength: 1
+    Type: String
+
+  DatabaseName:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters
+    Default: csye6225
+    Description: MySQL database name
+    MaxLength: 64
+    MinLength: 1
+    Type: String
+
+  DatabaseUser:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters
+    Default: csye6225
+    Description: Username for MySQL database access
+    MaxLength: 16
+    MinLength: 1
+    NoEcho: true
+    Type: String
+
+  DatabasePassword:
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Must contain only alphanumeric characters
+    Default: Pass1234
+    Description: Password for MySQL database access
+    MaxLength: 41
+    MinLength: 8
+    NoEcho: true
+    Type: String
+
+  DatabaseBackupRetentionPeriod:
+    ConstraintDescription: Database backup retention period must be between 0 and 35 days
+    Default: 0
+    Description: The number of days for which automatic DB snapshots are retained
+    MaxValue: 35
+    MinValue: 0
+    Type: Number
+
+  DatabaseAllocatedStorage:
+    ConstraintDescription: Must be between 5 and 1024Gb
+    Default: 20
+    Description: The size of the database (Gb)
+    MaxValue: 65536
+    MinValue: 5
+    Type: Number
+
+  DatabaseInstanceClass:
+    AllowedValues:
+      - db.t1.micro
+      - db.t2.micro
+      - db.t3.micro
+      - db.m1.small
+      - db.m1.medium
+      - db.m1.large
+    ConstraintDescription: Must select a valid database instance type
+    Default: db.t3.micro
+    Description: The database instance type
+    Type: String
+
+  MultiAZDatabase:
+    AllowedValues:
+      - true
+      - false
+    ConstraintDescription: Must be either true or false
+    Default: false
+    Description: Creates a Multi-AZ MySQL Amazon RDS database instance
+    Type: String
 
   ImageId:
     Description: ImageID
     Type: String
+
+  AccessKey:
+    Description: AccessKey
+    Type: String
+
+  SecretKey:
+    Description: SecretKey
+    Type: String   
+
+  ProfileName:
+    Description: Profile Name
+    Type: String
+
 
 Resources:
   VPC:
@@ -117,6 +226,85 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet3
 
+  #Private Subnet for RDS
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} PrivateSubnet-1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} PrivateSubnet-2
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} PrivateSubnet-3
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} Private Routes (AZ1)
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} Private Routes (AZ2)
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
+  PrivateRouteTable3:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} Private Routes (AZ2)
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable3
+      SubnetId: !Ref PrivateSubnet3
+
+
+
   #Create Security Group
   SSHSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -162,7 +350,148 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-SSH Security Group
-      VpcId: !Ref VPC      
+      VpcId: !Ref VPC
+
+  #Create Security Group
+  DBSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: DB SecurityGroup
+      SecurityGroupIngress:
+        # MYSQL access
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref SSHSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-DB Security Group
+      VpcId: !Ref VPC
+
+  DemoEc2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EC2-CSYE6225
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+
+  DemoInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      InstanceProfileName: demo-ec2-instance-profile
+      Path: /
+      Roles: 
+       - !Ref DemoEc2InstanceRole
+
+
+  DemoInstanceS3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: WebAppS3
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action:
+              - s3:Delete*
+              - s3:Get*
+              - s3:Put*
+              - s3:List*
+            Resource:
+              - arn:aws:s3:::${S3Bucket}/*
+              - arn:aws:s3:::${S3Bucket}
+      Roles:
+        -
+          !Ref DemoEc2InstanceRole
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join
+        - "."
+        - - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+          - Ref: "ProfileName"
+          - "ketkikule.me"  
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+        - Id: Rule for s3 bucket
+          Prefix: S3 images
+          Status: Enabled
+          Transitions:
+            - TransitionInDays: 30
+              StorageClass: STANDARD_IA
+
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - s3:Delete*
+              - s3:Get*
+              - s3:Put*
+              - s3:List*
+            Resource:
+              - arn:aws:s3:::bucket.dev.ketkikule.me
+              - arn:aws:s3:::bucket.dev.ketkikule.me/*
+      Bucket: !Ref S3Bucket
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS database
+      SubnetIds: 
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+      Tags:
+        - Key: Name
+          Value: database subnets
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: !Ref DatabaseAllocatedStorage
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      BackupRetentionPeriod: !Ref DatabaseBackupRetentionPeriod
+      DBInstanceClass: !Ref DatabaseInstanceClass
+      DBInstanceIdentifier: !Ref DatabaseInstanceIdentifier
+      DBName: !Ref DatabaseName
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      Engine: MySQL
+      EngineVersion: 5.7.31
+      MasterUsername: !Ref DatabaseUser
+      MasterUserPassword: !Ref DatabasePassword
+      MultiAZ: !Ref MultiAZDatabase
+      VPCSecurityGroups: 
+        - !Ref DBSecurityGroup
+
 # Create EC2 Instance
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -170,17 +499,57 @@ Resources:
       ImageId: !Ref ImageId
       InstanceType: t2.micro
       KeyName: csye_6225
+      UserData:
+        Fn::Base64: 
+          !Sub |
+            #!/bin/bash
+            echo "# App Environment Variables"
+            cd /home/ec2-user/
+            touch environment.env
+            echo "DB_HOST=${DatabaseInstance.Endpoint.Address}" >> /home/ec2-user/environment.env
+            echo "DB_PORT=${DatabaseInstance.Endpoint.Port}" >> /home/ec2-user/environment.env
+            echo "DB_DATABASE=${DatabaseName}" >> /home/ec2-user/environment.env
+            echo "DB_USERNAME=${DatabaseUser}" >> /home/ec2-user/environment.env
+            echo "DB_PASSWORD=${DatabasePassword}" >> /home/ec2-user/environment.env
+            echo "FILESYSTEM_DRIVER=s3" >> /home/ec2-user/environment.env
+            echo "AWS_BUCKET_NAME="bucket.dev.ketkikule.me"" >> /home/ec2-user/environment.env
+            echo "ACCESS_KEY=${AccessKey}" >> /home/ec2-user/environment.env
+            echo "SECRET_KEY=${SecretKey}" >> /home/ec2-user/environment.env
+            sudo chmod 777 /home/ec2-user/environment.env
+            sudo chmod 777 /home/ec2-user/webapp.sh
+            cd /etc/systemd/system
+            sudo chmod 777 webservice.service
+            sudo systemctl daemon-reload
+            sudo systemctl start webservice.service
+            sudo systemctl enable webservice.service
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: "gp2"
             DeleteOnTermination: "true"
-            VolumeSize: "20"  
+            VolumeSize: "20"
       NetworkInterfaces:
         - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
           SubnetId: !Ref PublicSubnet2
           GroupSet: [!Ref SSHSecurityGroup]
+      IamInstanceProfile: !Ref DemoInstanceProfile
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-EC2"
+
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: "gp2"
+            DeleteOnTermination: "true"
+            VolumeSize: "20"
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          SubnetId: !Ref PublicSubnet2
+          GroupSet: [!Ref SSHSecurityGroup]
+      IamInstanceProfile: !Ref DemoInstanceProfile
       Tags:
         - Key: Name
           Value: !Sub "${AWS::StackName}-EC2"
