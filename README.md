@@ -38,6 +38,10 @@ Here is what you need to do for networking infrastructure setup:
     ```
    aws cloudformation create-stack --stack-name stack-name --template-body file://csye6225-infra.yml
    ```
+   
+   ```
+   aws cloudformation create-stack --stack-name dev-stack --template-body file://csye6225-infra.yml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=ImageId,ParameterValue="ami-xxx" ParameterKey=AccessKey,ParameterValue="value" ParameterKey=SecretKey,ParameterValue="value" ParameterKey=ProfileName,ParameterValue="dev"
+   ```
 
 4. Run this command to delete the stack
     
