@@ -371,7 +371,7 @@ Resources:
   DemoEc2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: EC2-CSYE6225
+      RoleName: !Sub ${AWS::StackName}-IAMRole
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -387,7 +387,7 @@ Resources:
   DemoInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
-      InstanceProfileName: demo-ec2-instance-profile
+      InstanceProfileName: !Sub ${AWS::StackName}-ec2-instance-profile
       Path: /
       Roles: 
        - !Ref DemoEc2InstanceRole
@@ -396,7 +396,7 @@ Resources:
   DemoInstanceS3Policy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: WebAppS3
+      PolicyName: !Sub ${AWS::StackName}-WebAppS3
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -443,24 +443,6 @@ Resources:
           Transitions:
             - TransitionInDays: 30
               StorageClass: STANDARD_IA
-
-
-  S3BucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal: "*"
-            Action:
-              - s3:Delete*
-              - s3:Get*
-              - s3:Put*
-              - s3:List*
-            Resource:
-              - arn:aws:s3:::bucket.dev.ketkikule.me
-              - arn:aws:s3:::bucket.dev.ketkikule.me/*
-      Bucket: !Ref S3Bucket
 
   DatabaseSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -512,7 +494,7 @@ Resources:
             echo "DB_USERNAME=${DatabaseUser}" >> /home/ec2-user/environment.env
             echo "DB_PASSWORD=${DatabasePassword}" >> /home/ec2-user/environment.env
             echo "FILESYSTEM_DRIVER=s3" >> /home/ec2-user/environment.env
-            echo "AWS_BUCKET_NAME="bucket.dev.ketkikule.me"" >> /home/ec2-user/environment.env
+            echo "AWS_BUCKET_NAME=${S3Bucket}" >> /home/ec2-user/environment.env
             echo "ACCESS_KEY=${AccessKey}" >> /home/ec2-user/environment.env
             echo "SECRET_KEY=${SecretKey}" >> /home/ec2-user/environment.env
             sudo chmod 777 /home/ec2-user/environment.env
@@ -522,22 +504,6 @@ Resources:
             sudo systemctl daemon-reload
             sudo systemctl start webservice.service
             sudo systemctl enable webservice.service
-      BlockDeviceMappings:
-        - DeviceName: /dev/xvda
-          Ebs:
-            VolumeType: "gp2"
-            DeleteOnTermination: "true"
-            VolumeSize: "20"
-      NetworkInterfaces:
-        - AssociatePublicIpAddress: "true"
-          DeviceIndex: "0"
-          SubnetId: !Ref PublicSubnet2
-          GroupSet: [!Ref SSHSecurityGroup]
-      IamInstanceProfile: !Ref DemoInstanceProfile
-      Tags:
-        - Key: Name
-          Value: !Sub "${AWS::StackName}-EC2"
-
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
