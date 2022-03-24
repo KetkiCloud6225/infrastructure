@@ -136,12 +136,12 @@ Parameters:
   DomainName:
     Description: domain Name for S3 Bucket Naming
     Type: String
-    Default: dev.ketkikule.me
+    Default: prod.ketkikule.me
 
   HostedZoneID:
     Description: Hosted ID
     Type: String
-    Default: Z085649719EUQE0QO7QXT
+    Default: Z04795973RD3J9BS2OCEL
 
 
 Resources:
@@ -341,8 +341,8 @@ Resources:
           Value: !Sub ${AWS::StackName}-LoadBal Security Group
       VpcId: !Ref VPC
 
-  #Create Security Group
-  SSHSecurityGroup:
+  #Create App Security Group
+  WebAppSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: SSH Security Group
@@ -376,7 +376,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId: !Ref SSHSecurityGroup
+          SourceSecurityGroupId: !Ref WebAppSecurityGroup
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-DB Security Group
@@ -515,7 +515,7 @@ Resources:
       ImageId: !Ref ImageId
       IamInstanceProfile: !Ref DemoInstanceProfile
       SecurityGroups:
-        - !Ref SSHSecurityGroup
+        - !Ref WebAppSecurityGroup
       BlockDeviceMappings:
       - DeviceName: /dev/xvda
         Ebs:
@@ -554,12 +554,12 @@ Resources:
         - us-east-1b
         - us-east-1c
       Cooldown: '100'
-      DesiredCapacity: '3'
+      DesiredCapacity: '1'
       HealthCheckGracePeriod: 90
       HealthCheckType: EC2
       LaunchConfigurationName: !Ref asgLaunchConfig
       MaxSize: '5'
-      MinSize: '3'
+      MinSize: '1'
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-asg
