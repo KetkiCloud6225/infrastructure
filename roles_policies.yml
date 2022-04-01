@@ -64,27 +64,12 @@ Resources:
         Version: '2012-10-17'
         Statement:
         - Action:
-          - s3:Get*
-          - s3:List*
+          - s3:GetObject
+          - s3:ListObject
           Effect: Allow
           Resource:
           - Fn::Sub: arn:aws:s3:::codedeploy.${domainName}/*
           - arn:aws:s3:::aws-codedeploy-us-east-1/*
-  
-  # codeDeployLambdaUpdateFunctionCodePolicyId:
-  #   Type: AWS::IAM::ManagedPolicy
-  #   Properties:
-  #     ManagedPolicyName: CodeDeploy-Lambda-UpdateFunctionCode
-  #     PolicyDocument:
-  #       Version: '2012-10-17'
-  #       Statement:
-  #       - Action:
-  #         - lambda:UpdateFunctionCode
-  #         Effect: Allow
-  #         Resource:
-  #           Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
-  #     Users:
-  #     - ghactions-app
   
   githubS3UploadPolicyId:
     Type: AWS::IAM::ManagedPolicy
@@ -95,11 +80,11 @@ Resources:
         Statement:
         - Action:
           - s3:PutObject
-          - s3:Get* #can be ignored
-          - s3:List* #can be ignored
+          - s3:GetObject 
+          - s3:ListObject
           Effect: Allow
           Resource:
-            Fn::Sub: arn:aws:s3:::dev.${domainName}.codedeploy/*
+            Fn::Sub: arn:aws:s3:::prod.${domainName}.codedeploy/*
       Users:
       - ghactions-app
   
@@ -119,7 +104,6 @@ Resources:
       RoleName: EC2ExecutionRole
       ManagedPolicyArns:
       - Ref: codeDeployEc2S3PolicyId
-      # - Ref: cloudWatchAgentPolicyArn
       Tags:
       - Key: Name
         Value:
@@ -136,7 +120,7 @@ Resources:
           Action:
           - codedeploy:RegisterApplicationRevision
           - codedeploy:GetApplicationRevision
-          - codedeploy:ListApplicationRevisions #can be ignored
+          - codedeploy:ListApplicationRevisions 
           Resource:
           - Fn::Sub: arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:csye6225-webapp
         - Effect: Allow

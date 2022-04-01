@@ -136,13 +136,13 @@ Parameters:
   DomainName:
     Description: domain Name for S3 Bucket Naming
     Type: String
-    Default: dev.ketkikule.me
+    Default: prod.ketkikule.me
 
   HostedZoneID:
     Description: Hosted ID
     Type: String
-    Default: Z085649719EUQE0QO7QXT
-    #Default: Z04795973RD3J9BS2OCEL demo
+    Default: Z04795973RD3J9BS2OCEL
+    #Default: Z085649719EUQE0QO7QXT
 
 
 Resources:
@@ -426,8 +426,8 @@ Resources:
             Resource:
               - arn:aws:s3:::${S3Bucket}/*
               - arn:aws:s3:::${S3Bucket}
-              - !Sub arn:aws:s3:::dev.ketkikule.me.codedeploy/*
-              - !Sub arn:aws:s3:::dev.ketkikule.me.codedeploy/    
+              - !Sub arn:aws:s3:::prod.ketkikule.me.codedeploy/*
+              - !Sub arn:aws:s3:::prod.ketkikule.me.codedeploy/    
       Roles:
         -
           !Ref DemoEc2InstanceRole
@@ -538,8 +538,6 @@ Resources:
           echo "DB_PASSWORD=${DatabasePassword}" >> /home/ec2-user/environment.env
           echo "FILESYSTEM_DRIVER=s3" >> /home/ec2-user/environment.env
           echo "AWS_BUCKET_NAME=${S3Bucket}" >> /home/ec2-user/environment.env
-          echo "ACCESS_KEY=${AccessKey}" >> /home/ec2-user/environment.env
-          echo "SECRET_KEY=${SecretKey}" >> /home/ec2-user/environment.env
           sudo chmod 777 /home/ec2-user/environment.env
           sudo chmod 777 /home/ec2-user/webapp.sh
           cd /etc/systemd/system
@@ -595,7 +593,7 @@ Resources:
   CPUAlarmHigh:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: Scale-up if CPU > 50%
+      AlarmDescription: Scale-up if CPU > 5%
       MetricName: CPUUtilization
       Namespace: AWS/EC2
       Statistic: Average
