@@ -5,10 +5,6 @@ Parameters:
     Description: Domain Name
     Type: String
     Default: ketkikule.me
-  # cloudWatchAgentPolicyArn:
-  #   Description: CloudWatchAgentServerPolicy ARN
-  #   Type: String
-  #   Default: arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
 Resources:
   githubEc2AmiPolicyId:
     Type: AWS::IAM::ManagedPolicy
@@ -68,7 +64,7 @@ Resources:
           - s3:ListObject
           Effect: Allow
           Resource:
-          - Fn::Sub: arn:aws:s3:::codedeploy.${domainName}/*
+          - Fn::Sub: arn:aws:s3:::prod.${domainName}.codedeploy/*
           - arn:aws:s3:::aws-codedeploy-us-east-1/*
   
   githubS3UploadPolicyId:
@@ -103,7 +99,8 @@ Resources:
       Path: "/"
       RoleName: EC2ExecutionRole
       ManagedPolicyArns:
-      - Ref: codeDeployEc2S3PolicyId
+      - Ref: codeDeployEc2S3PolicyId            
+      - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
       Tags:
       - Key: Name
         Value:
