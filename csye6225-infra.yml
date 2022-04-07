@@ -121,17 +121,23 @@ Parameters:
     Description: ImageID
     Type: String
 
-  AccessKey:
-    Description: AccessKey
-    Type: String
+  # AccessKey:
+  #   Description: AccessKey
+  #   Type: String
 
-  SecretKey:
-    Description: SecretKey
-    Type: String   
-
+  # SecretKey:
+  #   Description: SecretKey
+  #   Type: String 
+    
   ProfileName:
-    Description: Profile Name
+    Default: demo
     Type: String
+    Description: Enter the profile that you want this to run on either dev or demo
+
+  GitHubStackName:
+    Description: GitHub Roles and Policies Stack Name
+    Type: String
+    Default: policy-stack      
 
   DomainName:
     Description: domain Name for S3 Bucket Naming
@@ -142,7 +148,7 @@ Parameters:
     Description: Hosted ID
     Type: String
     Default: Z04795973RD3J9BS2OCEL
-    #Default: Z085649719EUQE0QO7QXT
+    #Default: Z085649719EUQE0QO7QXT dev
 
 
 Resources:
@@ -384,29 +390,61 @@ Resources:
       VpcId: !Ref VPC
 
 
-  DemoEc2InstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub ${AWS::StackName}-IAMRole
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          -
-            Effect: Allow
-            Principal:
-              Service:
-                - ec2.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Path: /
+  # DemoEc2InstanceRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     RoleName: !Sub ${AWS::StackName}-IAMRole
+  #     AssumeRolePolicyDocument:
+  #       Version: "2012-10-17"
+  #       Statement:
+  #         -
+  #           Effect: Allow
+  #           Principal:
+  #             Service:
+  #               - ec2.amazonaws.com
+  #           Action:
+  #             - sts:AssumeRole
+  #     Path: /
 
   DemoInstanceProfile:
     Type: AWS::IAM::InstanceProfile
-    Properties: 
+    Properties:
       InstanceProfileName: !Sub ${AWS::StackName}-ec2-instance-profile
       Path: /
       Roles: 
-       - !Ref DemoEc2InstanceRole
+      - Fn::ImportValue:
+          Fn::Sub: "${GitHubStackName}-ec2ExecutionRoleId"
+
+  # CloudWatchAgentPolicy:
+  #   Type: AWS::IAM::Policy
+  #   Properties:
+  #     PolicyName: CloudWatchAgentPolicy
+  #     PolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         -
+  #           Effect: Allow
+  #           Action:
+  #             - cloudwatch:PutMetricData
+  #             - ec2:DescribeVolumes
+  #             - ec2:DescribeTags
+  #             - logs:PutLogEvents
+  #             - logs:DescribeLogStreams
+  #             - logs:DescribeLogGroups
+  #             - logs:CreateLogStream
+  #             - logs:CreateLogGroup
+  #           Resource:
+  #             - "*"
+  #         -
+  #           Effect: Allow
+  #           Action:
+  #             - ssm:GetParameter
+  #             - ssm:PutParameter
+  #           Resource:
+  #             - "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
+  #     Roles:
+  #     - Fn::ImportValue:
+  #         Fn::Sub: "${GitHubStackName}-ec2ExecutionRoleId"
 
 
   DemoInstanceS3Policy:
@@ -427,10 +465,10 @@ Resources:
               - arn:aws:s3:::${S3Bucket}/*
               - arn:aws:s3:::${S3Bucket}
               - !Sub arn:aws:s3:::prod.ketkikule.me.codedeploy/*
-              - !Sub arn:aws:s3:::prod.ketkikule.me.codedeploy/    
+              - !Sub arn:aws:s3:::prod.ketkikule.me.codedeploy/  
       Roles:
-        -
-          !Ref DemoEc2InstanceRole
+      - Fn::ImportValue:
+          Fn::Sub: "${GitHubStackName}-ec2ExecutionRoleId" 
 
   S3Bucket:
     Type: AWS::S3::Bucket
@@ -541,8 +579,9 @@ Resources:
           sudo chmod 777 /home/ec2-user/environment.env
           sudo chmod 777 /home/ec2-user/webapp.sh
           cd /etc/systemd/system
-          sudo chmod 777 webservice.service
+          sudo chmod 777 webservice.service          
           sudo systemctl daemon-reload
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/cloudwatch-config.json -s
           sudo systemctl start webservice.service
           sudo systemctl enable webservice.service
 
@@ -748,4 +787,6 @@ Resources:
         Type: KEY_AND_VALUE
       DeploymentConfigName: CodeDeployDefault.AllAtOnce
       AutoRollbackConfiguration:
-        Enabled: 'False'           
+        Enabled: 'true'
+        Events: 
+          - DEPLOYMENT_FAILURE        
