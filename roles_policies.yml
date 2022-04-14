@@ -19,7 +19,7 @@ Resources:
           - ec2:AuthorizeSecurityGroupIngress
           - ec2:CopyImage
           - ec2:CreateImage
-          - ec2:CreateKeypair
+          - ec2:CreateKeyPair
           - ec2:CreateSecurityGroup
           - ec2:CreateSnapshot
           - ec2:CreateTags
@@ -135,6 +135,139 @@ Resources:
           - Fn::Sub: arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.AllAtOnce
       Users:
       - ghactions-app
+
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    DependsOn: LambdaFunction
+    Properties: 
+      DisplayName: "csye6225"
+      TopicName: "csye6225-topic"
+      Subscription:
+        - Endpoint: !GetAtt LambdaFunction.Arn
+          Protocol: lambda
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "csye6225-spring2022"
+      MemorySize: 512
+      Handler: "index.handler"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+          S3Bucket: "prod.ketkikule.me.codedeploy"
+          S3Key: "SNS.zip"
+      Runtime: "nodejs14.x"
+      Timeout: 180
+
+  PermissionSNStoLambda:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref LambdaFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref SNSTopic
+
+#Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      # ManagedPolicyArns:
+      # - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+
+  LambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaDynamoDBPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:PutLogEvents
+              - logs:GetLogEvents
+              - logs:CreateLogStream
+            Resource:
+              - arn:aws:logs:us-east-1:257878682470:*
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource:
+              - "arn:aws:ses:us-east-1:257878682470:identity/prod.ketkikule.me"  
+      Roles:
+        - !Ref LambdaExecutionRole
+            
+  DynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions: 
+          - 
+            AttributeName: "username"
+            AttributeType: "S"
+          - 
+            AttributeName: "token"
+            AttributeType: "S"
+      KeySchema: 
+          -
+            AttributeName : "username"
+            KeyType : "HASH"
+          -
+            AttributeName : "token"
+            KeyType : "RANGE"
+      TableName: "csye6225"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      TimeToLiveSpecification:
+        AttributeName: "TimeToLive"
+        Enabled: TRUE
+
+  DynamoDBPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DynamoDBPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+            Resource:
+              - !GetAtt DynamoDB.Arn
+      Roles:
+        - !Ref LambdaExecutionRole
+        - !Ref ec2ExecutionRoleId
+
+  EC2SNSPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EC2SNSPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sns:Publish
+              - sns:GetTopicAttributes
+              - sns:ListTopics
+            Resource:
+              - "*"
+      Roles:
+        - !Ref ec2ExecutionRoleId
+
 
 Outputs:
   ec2ExecutionRoleId:
