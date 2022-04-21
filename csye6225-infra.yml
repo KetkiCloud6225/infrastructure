@@ -150,6 +150,22 @@ Parameters:
     Default: Z04795973RD3J9BS2OCEL
     #Default: Z085649719EUQE0QO7QXT dev
 
+  CertificateArn:
+    Description: Certificate ARN
+    Type: String
+    Default: arn:aws:acm:us-east-1:257878682470:certificate/b1f9fabc-d56f-4c60-b320-109caf65bcf5
+
+  RDSCertificate:
+    Description: Certificate ARN
+    Type: String
+    Default: arn:aws:kms:us-east-1:257878682470:key/7a723ffe-8c08-4c39-a369-9f6cd73f5941
+
+  EBSCertificate:
+    Description: Certificate ARN
+    Type: String
+    Default: arn:aws:kms:us-east-1:257878682470:key/00dce9cf-f313-45c7-80f8-4b7e6e023a2f
+
+
 
 Resources:
   VPC:
@@ -389,23 +405,6 @@ Resources:
           Value: !Sub ${AWS::StackName}-DB Security Group
       VpcId: !Ref VPC
 
-
-  # DemoEc2InstanceRole:
-  #   Type: AWS::IAM::Role
-  #   Properties:
-  #     RoleName: !Sub ${AWS::StackName}-IAMRole
-  #     AssumeRolePolicyDocument:
-  #       Version: "2012-10-17"
-  #       Statement:
-  #         -
-  #           Effect: Allow
-  #           Principal:
-  #             Service:
-  #               - ec2.amazonaws.com
-  #           Action:
-  #             - sts:AssumeRole
-  #     Path: /
-
   DemoInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -414,38 +413,6 @@ Resources:
       Roles: 
       - Fn::ImportValue:
           Fn::Sub: "${GitHubStackName}-ec2ExecutionRoleId"
-
-  # CloudWatchAgentPolicy:
-  #   Type: AWS::IAM::Policy
-  #   Properties:
-  #     PolicyName: CloudWatchAgentPolicy
-  #     PolicyDocument:
-  #       Version: 2012-10-17
-  #       Statement:
-  #         -
-  #           Effect: Allow
-  #           Action:
-  #             - cloudwatch:PutMetricData
-  #             - ec2:DescribeVolumes
-  #             - ec2:DescribeTags
-  #             - logs:PutLogEvents
-  #             - logs:DescribeLogStreams
-  #             - logs:DescribeLogGroups
-  #             - logs:CreateLogStream
-  #             - logs:CreateLogGroup
-  #           Resource:
-  #             - "*"
-  #         -
-  #           Effect: Allow
-  #           Action:
-  #             - ssm:GetParameter
-  #             - ssm:PutParameter
-  #           Resource:
-  #             - "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
-  #     Roles:
-  #     - Fn::ImportValue:
-  #         Fn::Sub: "${GitHubStackName}-ec2ExecutionRoleId"
-
 
   DemoInstanceS3Policy:
     Type: AWS::IAM::Policy
@@ -521,7 +488,7 @@ Resources:
     Type: AWS::RDS::DBParameterGroup
     Properties:
       Description: CloudFormation MySQL RDS Parameter Group
-      Family: mysql5.7
+      Family: mysql8.0
       Parameters:
         sql_mode: NO_ENGINE_SUBSTITUTION
         max_allowed_packet: 1073741824
@@ -539,51 +506,100 @@ Resources:
       DBSubnetGroupName: !Ref DatabaseSubnetGroup
       DBParameterGroupName: !Ref RDSParameterGroup
       Engine: MySQL
-      EngineVersion: 5.7.31
+      PubliclyAccessible : false      
+      EngineVersion: 8.0.17
       MasterUsername: !Ref DatabaseUser
       MasterUserPassword: !Ref DatabasePassword
       MultiAZ: !Ref MultiAZDatabase
+      StorageEncrypted: true
+      KmsKeyId: !Ref RDSCertificate
       VPCSecurityGroups: 
         - !Ref DBSecurityGroup
 
-  asgLaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
+  # asgLaunchConfig:
+  #   Type: AWS::AutoScaling::LaunchConfiguration
+  #   Properties:
+  #     LaunchConfigurationName: !Sub "${AWS::StackName}-launch-config"
+  #     AssociatePublicIpAddress: "true"      
+  #     InstanceType: t2.micro
+  #     KeyName: csye_6225
+  #     ImageId: !Ref ImageId
+  #     IamInstanceProfile: !Ref DemoInstanceProfile
+  #     SecurityGroups:
+  #       - !Ref WebAppSecurityGroup
+  #     BlockDeviceMappings:
+  #     - DeviceName: /dev/xvda
+  #       Ebs:
+  #         VolumeSize: 20
+  #         VolumeType: "gp2"
+  #         DeleteOnTermination: true
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash
+  #         echo "# App Environment Variables"
+  #         cd /home/ec2-user/
+  #         touch environment.env
+  #         echo "DB_HOST=${DatabaseInstance.Endpoint.Address}" >> /home/ec2-user/environment.env
+  #         echo "DB_PORT=${DatabaseInstance.Endpoint.Port}" >> /home/ec2-user/environment.env
+  #         echo "DB_DATABASE=${DatabaseName}" >> /home/ec2-user/environment.env
+  #         echo "DB_USERNAME=${DatabaseUser}" >> /home/ec2-user/environment.env
+  #         echo "DB_PASSWORD=${DatabasePassword}" >> /home/ec2-user/environment.env
+  #         echo "FILESYSTEM_DRIVER=s3" >> /home/ec2-user/environment.env
+  #         echo "AWS_BUCKET_NAME=${S3Bucket}" >> /home/ec2-user/environment.env
+  #         sudo chmod 777 /home/ec2-user/environment.env
+  #         sudo chmod 777 /home/ec2-user/webapp.sh
+  #         cd /etc/systemd/system
+  #         sudo chmod 777 webservice.service          
+  #         sudo systemctl daemon-reload
+  #         sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/cloudwatch-config.json -s
+  #         sudo systemctl start webservice.service
+  #         sudo systemctl enable webservice.service
+
+
+  asgLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchConfigurationName: !Sub "${AWS::StackName}-launch-config"
-      AssociatePublicIpAddress: "true"      
-      InstanceType: t2.micro
-      KeyName: csye_6225
-      ImageId: !Ref ImageId
-      IamInstanceProfile: !Ref DemoInstanceProfile
-      SecurityGroups:
-        - !Ref WebAppSecurityGroup
-      BlockDeviceMappings:
-      - DeviceName: /dev/xvda
-        Ebs:
-          VolumeSize: 20
-          VolumeType: "gp2"
-          DeleteOnTermination: true
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          echo "# App Environment Variables"
-          cd /home/ec2-user/
-          touch environment.env
-          echo "DB_HOST=${DatabaseInstance.Endpoint.Address}" >> /home/ec2-user/environment.env
-          echo "DB_PORT=${DatabaseInstance.Endpoint.Port}" >> /home/ec2-user/environment.env
-          echo "DB_DATABASE=${DatabaseName}" >> /home/ec2-user/environment.env
-          echo "DB_USERNAME=${DatabaseUser}" >> /home/ec2-user/environment.env
-          echo "DB_PASSWORD=${DatabasePassword}" >> /home/ec2-user/environment.env
-          echo "FILESYSTEM_DRIVER=s3" >> /home/ec2-user/environment.env
-          echo "AWS_BUCKET_NAME=${S3Bucket}" >> /home/ec2-user/environment.env
-          sudo chmod 777 /home/ec2-user/environment.env
-          sudo chmod 777 /home/ec2-user/webapp.sh
-          cd /etc/systemd/system
-          sudo chmod 777 webservice.service          
-          sudo systemctl daemon-reload
-          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/cloudwatch-config.json -s
-          sudo systemctl start webservice.service
-          sudo systemctl enable webservice.service
+      LaunchTemplateName: !Sub "${AWS::StackName}-launch-config"
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        KeyName: csye_6225
+        ImageId: !Ref ImageId
+        IamInstanceProfile: 
+          Name: !Ref DemoInstanceProfile
+        SecurityGroupIds:
+          - !Ref WebAppSecurityGroup
+        BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: "gp2"
+            DeleteOnTermination: true
+            Encrypted: true
+            KmsKeyId: !Ref EBSCertificate
+        Placement:
+          Tenancy: default          
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo "# App Environment Variables"
+            cd /home/ec2-user/
+            curl -sS "https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem" > /home/ec2-user/global-bundle.pem
+            touch environment.env
+            echo "DB_HOST=${DatabaseInstance.Endpoint.Address}" >> /home/ec2-user/environment.env
+            echo "DB_PORT=${DatabaseInstance.Endpoint.Port}" >> /home/ec2-user/environment.env
+            echo "DB_DATABASE=${DatabaseName}" >> /home/ec2-user/environment.env
+            echo "DB_USERNAME=${DatabaseUser}" >> /home/ec2-user/environment.env
+            echo "DB_PASSWORD=${DatabasePassword}" >> /home/ec2-user/environment.env
+            echo "FILESYSTEM_DRIVER=s3" >> /home/ec2-user/environment.env
+            echo "AWS_BUCKET_NAME=${S3Bucket}" >> /home/ec2-user/environment.env
+            sudo chmod 777 /home/ec2-user/environment.env
+            sudo chmod 777 /home/ec2-user/webapp.sh
+            cd /etc/systemd/system
+            sudo chmod 777 webservice.service          
+            sudo systemctl daemon-reload
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/cloudwatch-config.json -s
+            sudo systemctl start webservice.service
+            sudo systemctl enable webservice.service
 
   asgWebApp:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -597,7 +613,9 @@ Resources:
       DesiredCapacity: '1'
       HealthCheckGracePeriod: 90
       HealthCheckType: EC2
-      LaunchConfigurationName: !Ref asgLaunchConfig
+      LaunchTemplate:
+        LaunchTemplateId: !Ref asgLaunchTemplate
+        Version: 1
       MaxSize: '5'
       MinSize: '1'
       Tags:
@@ -717,8 +735,10 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref loadBalancerTargetGroup
       LoadBalancerArn: !Ref loadBalancer
-      Port: 80
-      Protocol: HTTP
+      Certificates:
+      - !Ref CertificateArn
+      Port: 443
+      Protocol: HTTPS
 
 # DNS record
   myDNSRecord:

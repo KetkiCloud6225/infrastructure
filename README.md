@@ -52,3 +52,8 @@ Here is what you need to do for networking infrastructure setup:
     ```    
     aws cloudformation delete-stack --stack-name <stack-name>
     ```
+
+7. Import certificate to AWS
+   ```
+   aws acm import-certificate --certificate fileb://Certificate.pem \ --certificate-chain fileb://CertificateChain.pem \ --private-key fileb://PrivateKey.pem
+   ```    
